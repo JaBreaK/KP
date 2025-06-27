@@ -1,0 +1,201 @@
+---
+// src/pages/bahan.astro
+
+import { supabase } from '../../lib/supabase';
+
+
+// 1. Fetch data di sisi server
+const { data: bahanList, error } = await supabase
+  .from('bahan')
+  .select('*')
+  .order('nama', { ascending: true });
+
+if (error) {
+  console.error('Error fetching bahan:', error.message);
+}
+
+// Konfigurasi dan helper
+const DEFAULT_IMAGE_URL = '/public/image.svg'; // Gambar default jika tidak ada gambar
+
+function resolveImageUrl(gambarField: string | null): string {
+  return gambarField && gambarField.startsWith('http') ? gambarField : DEFAULT_IMAGE_URL;
+}
+---
+
+
+
+  <main class="p-4 md:p-6 lg:p-8">
+    <div class="flex flex-col lg:flex-row gap-6">
+
+      <div id="bahan-container" class="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {bahanList && bahanList.length > 0 ? (
+          bahanList.map((item) => (
+            <div class="bg-white rounded-lg shadow p-4 flex flex-col">
+              <img
+                src={resolveImageUrl(item.gambar)}
+                alt={item.nama || 'bahan'}
+                class="w-full h-40 object-cover rounded"
+              />
+              <h3 class="mt-2 text-lg font-semibold text-gray-800">{item.nama || '(no name)'}</h3>
+              <p class="mt-1 text-sm text-gray-600 flex-1">
+                {item.desk && item.desk.length > 100 ? item.desk.slice(0, 100) + '...' : item.desk}
+              </p>
+              <div class="mt-2 flex justify-end space-x-2">
+                <button
+                  class="btn-edit px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+                  data-id={item.id}
+                  data-nama={item.nama}
+                  data-desk={item.desk}
+                  data-gambar={item.gambar}
+                >
+                  Edit
+                </button>
+                <button
+                  class="btn-delete px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                  data-id={item.id}
+                  data-gambar={item.gambar}
+                >
+                  Hapus
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p class="text-gray-500 col-span-full">Belum ada data bahan.</p>
+        )}
+        {error && <p class="text-red-500 col-span-full">Gagal memuat data bahan.</p>}
+      </div>
+
+      <div class="w-full lg:w-96 bg-white rounded-lg shadow p-4 self-start">
+        <h3 id="form-title" class="text-lg font-medium text-gray-800 mb-4">Tambah Bahan</h3>
+        <form id="bahan-form" class="flex flex-col space-y-3">
+          <input type="hidden" id="bahan-id" />
+          <input type="hidden" id="bahan-old-gambar" />
+          <div>
+            <label for="bahan-nama" class="block text-sm font-medium text-gray-700">Nama Bahan</label>
+            <input type="text" id="bahan-nama" class="mt-1 w-full border border-gray-300 rounded px-2 py-1" placeholder="Masukkan nama bahan" required />
+          </div>
+          <div>
+            <label for="bahan-desk" class="block text-sm font-medium text-gray-700">Deskripsi</label>
+            <textarea id="bahan-desk" rows="3" class="mt-1 w-full border border-gray-300 rounded px-2 py-1" placeholder="Masukkan deskripsi bahan" required></textarea>
+          </div>
+          <div>
+            <label for="bahan-gambar" class="block text-sm font-medium text-gray-700">Pilih Gambar (opsional)</label>
+            <input type="file" accept="image/*" id="bahan-gambar" class="mt-1 w-full text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Preview Gambar</label>
+            <img id="bahan-preview" src={DEFAULT_IMAGE_URL} alt="Preview" class="w-full h-40 object-cover rounded border mt-1 bg-gray-50" />
+          </div>
+          <div class="flex justify-end space-x-2 pt-2">
+            <button type="button" id="btn-reset" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Reset</button>
+            <button type="submit" id="btn-submit" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script define:vars={{ DEFAULT_IMAGE_URL }}>
+    const container = document.getElementById('bahan-container');
+    const form = document.getElementById('bahan-form');
+    const formTitle = document.getElementById('form-title');
+    const inputId = document.getElementById('bahan-id');
+    const inputOldGambar = document.getElementById('bahan-old-gambar');
+    const inputNama = document.getElementById('bahan-nama');
+    const inputDesk = document.getElementById('bahan-desk');
+    const inputGambar = document.getElementById('bahan-gambar');
+    const previewImg = document.getElementById('bahan-preview');
+    const btnReset = document.getElementById('btn-reset');
+    const btnSubmit = document.getElementById('btn-submit');
+
+    function resetForm() {
+      form.reset();
+      inputId.value = '';
+      inputOldGambar.value = '';
+      formTitle.textContent = 'Tambah Bahan';
+      previewImg.src = DEFAULT_IMAGE_URL;
+    }
+
+    // Event Delegation untuk tombol Edit dan Hapus
+    container.addEventListener('click', async (e) => {
+      const editButton = e.target.closest('.btn-edit');
+      const deleteButton = e.target.closest('.btn-delete');
+
+      if (editButton) {
+        const { id, nama, desk, gambar } = editButton.dataset;
+        form.reset();
+        inputId.value = id;
+        inputNama.value = nama;
+        inputDesk.value = desk;
+        inputOldGambar.value = gambar || '';
+        previewImg.src = gambar || DEFAULT_IMAGE_URL;
+        formTitle.textContent = 'Edit Bahan';
+        form.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      if (deleteButton) {
+        const { id, gambar } = deleteButton.dataset;
+        if (!confirm(`Yakin ingin menghapus bahan ini?`)) return;
+
+        try {
+          const response = await fetch('/api/bahan', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, gambar }),
+          });
+          if (!response.ok) throw new Error((await response.json()).message);
+          alert('Bahan berhasil dihapus.');
+          window.location.reload();
+        } catch (error) {
+          alert('Gagal menghapus: ' + error.message);
+        }
+      }
+    });
+
+    btnReset.addEventListener('click', resetForm);
+
+    // Preview gambar
+    inputGambar.addEventListener('change', () => {
+      const file = inputGambar.files[0];
+      if (file) {
+        previewImg.src = URL.createObjectURL(file);
+      } else {
+        previewImg.src = inputOldGambar.value || DEFAULT_IMAGE_URL;
+      }
+    });
+
+    // Submit form (untuk Tambah dan Edit)
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('id', inputId.value);
+      formData.append('nama', inputNama.value.trim());
+      formData.append('desk', inputDesk.value.trim());
+      formData.append('old_gambar', inputOldGambar.value);
+
+      if (inputGambar.files[0]) {
+        formData.append('gambar', inputGambar.files[0]);
+      }
+      
+      const isEditing = !!inputId.value;
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = isEditing ? 'Menyimpan...' : 'Menambah...';
+
+      try {
+        const response = await fetch('/api/bahan', {
+          method: 'POST',
+          body: formData,
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message);
+        
+        alert(`Bahan berhasil ${isEditing ? 'diupdate' : 'ditambahkan'}.`);
+        window.location.reload();
+      } catch (error) {
+        alert('Gagal menyimpan: ' + error.message);
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Submit';
+      }
+    });
+  </script>

@@ -1,0 +1,21 @@
+import { c as createComponent, a as createAstro, m as maybeRenderHead, g as renderComponent, F as Fragment, r as renderTemplate } from './astro/server_vBMvLF1I.mjs';
+import 'kleur/colors';
+
+const $$Astro = createAstro();
+const $$HeroSection = createComponent(($$result, $$props, $$slots) => {
+  const Astro2 = $$result.createAstro($$Astro, $$props, $$slots);
+  Astro2.self = $$HeroSection;
+  const { title, highlightText, description } = Astro2.props;
+  let titleStart = title;
+  let titleEnd = "";
+  if (highlightText) {
+    const titleParts = title.split(highlightText);
+    if (titleParts.length > 1) {
+      titleStart = titleParts[0];
+      titleEnd = titleParts[1];
+    }
+  }
+  return renderTemplate`<!-- Hero Section -->${maybeRenderHead()}<section data-animate="fade-up" data-delay="100" class="relative overflow-hidden bg-linear-to-b from-primary-100 to-white dark:from-primary-950 dark:to-secondary-950 pt-24 md:pt-32 pb-16 md:pb-20"> <div class="absolute inset-0 z-0 opacity-30"> <div class="absolute inset-0 bg-grid-pattern"></div> </div> <div class="container-custom relative z-10"> <div class="text-center max-w-3xl mx-auto px-4"> <h1 class="text-3xl md:text-4xl lg:text-5xl mb-4 md:mb-6 text-gray-900 dark:text-white animate-slide-down"> ${highlightText ? renderTemplate`${renderComponent($$result, "Fragment", Fragment, {}, { "default": ($$result2) => renderTemplate`${titleStart}<span class="text-accent-500">${highlightText}</span>${titleEnd}` })}` : title} </h1> <p class="text-lg md:text-xl text-gray-700 dark:text-gray-300 mb-6 md:mb-8 animate-slide-up" style="animation-delay: 200ms"> ${description} </p> </div> </div> <!-- Animated Shapes --> <div class="absolute -bottom-16 left-0 right-0 flex justify-center"> <div class="w-48 md:w-64 h-48 md:h-64 bg-accent-400 rounded-full filter blur-3xl opacity-20 animate-pulse"></div> </div> </section>`;
+}, "Z:/WEB/kp-dyesablon-main/src/components/HeroSection.astro", void 0);
+
+export { $$HeroSection as $ };

@@ -1,0 +1,182 @@
+---
+// src/pages/staff-login.astro
+import { supabase } from '../lib/supabase';
+
+let errorMsg = '';
+let formPosted = false;
+let loginSuccessData = null; // Variabel untuk menampung data jika login sukses
+
+if (Astro.request.method === 'POST') {
+  formPosted = true;
+  const formData = await Astro.request.formData();
+  const email = formData.get('email')?.toString();
+  const password = formData.get('password')?.toString();
+
+  // Validasi sederhana
+  if (!email || !password) {
+    errorMsg = 'Email dan password tidak boleh kosong.';
+  } else {
+    // PERHATIAN: Membandingkan password plaintext seperti ini sangat tidak aman untuk produksi!
+    // Sebaiknya gunakan sistem otentikasi Supabase (Auth) yang menggunakan hash.
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id, email')
+      .eq('email', email)
+      .eq('password', password)
+      .single();
+
+    if (error || !data) {
+      errorMsg = 'Email atau password salah.';
+    } else {
+      // Jika berhasil, siapkan data untuk dikirim ke skrip di client-side
+      loginSuccessData = {
+        id: data.id,
+        email: data.email,
+      };
+    }
+  }
+}
+---
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staff Login</title>
+        <script>
+        // Skrip ini dieksekusi secepat mungkin di client untuk mengecek sesi.
+        // Jika sudah ada, langsung redirect tanpa perlu render halaman login.
+        try {
+            const staffSession = localStorage.getItem('staffSession');
+            if (staffSession) {
+                window.location.href = '/admin';
+            }
+        } catch (e) {
+            console.error("Tidak bisa mengakses localStorage:", e);
+        }
+    </script>
+    <style>
+      @keyframes fade-in-up {
+        0% { opacity: 0; transform: translateY(20px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-up { animation: fade-in-up 0.6s ease-out forwards; }
+
+      .back-btn {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #3b82f6;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: 9999px;
+        transition: all 0.3s ease;
+        background-color: rgba(59, 130, 246, 0.1);
+      }
+
+      .back-btn:hover {
+        background-color: rgba(59, 130, 246, 0.2);
+        transform: translateX(-4px);
+      }
+
+      .back-btn svg {
+        transition: transform 0.3s ease;
+      }
+
+      .back-btn:hover svg {
+        transform: translateX(-3px);
+      }
+
+              .error-msg { color: #d93025; text-align: center; margin-top: 1rem; }
+    </style>
+
+
+  </head>
+
+  <body class="bg-gradient-to-br from-[#f5f7fa] to-[#c3cfe2]">
+
+
+    <main class="min-h-screen flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl p-8 md:p-10 w-full max-w-md transform -translate-y-5 animate-fade-in-up">
+        <div class="text-center mb-8">
+          <div class="mx-auto mb-4 w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center p-2 animate-pulse">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" 
+                 stroke="#3498db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="w-10 h-10 md:w-12 md:h-12">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold text-slate-800 mb-2">STAFF LOGIN</h1>
+          <div class="w-12 h-1 bg-blue-500 rounded-full mx-auto"></div>
+        </div>
+
+        <form method="POST" class="login-form space-y-6">
+          <div>
+            <label for="email" class="block text-sm font-medium text-slate-700 mb-2">Email</label>
+            <input 
+              id="email" 
+              type="email"
+              name="email" 
+              placeholder="Enter your email" 
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg 
+                     focus:border-blue-500 focus:ring-2 focus:ring-blue-200 
+                     transition-all duration-300 outline-none 
+                     text-gray-800 placeholder-gray-400 
+                     focus:scale-105 focus:shadow-lg"
+            />
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-700 mb-2">Password</label>
+            <input 
+              id="password" 
+              type="password"
+              name="password" 
+              placeholder="••••••••" 
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg 
+                     focus:border-blue-500 focus:ring-2 focus:ring-blue-200 
+                     transition-all duration-300 outline-none 
+                     text-gray-800 placeholder-gray-400 
+                     focus:scale-105 focus:shadow-lg"
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold py-4 rounded-lg 
+                   hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 
+                   flex items-center justify-center gap-2 group"
+          >
+            Sign In
+            <span class="group-hover:translate-x-1 transition-transform duration-200 group-hover:animate-bounce">→</span>
+          </button>
+
+          <p class="text-center text-sm text-gray-500 mt-4">
+            <a href="/recovery" class="text-blue-600 hover:underline">Lupa password?</a>
+          {formPosted && errorMsg && <p class="error-msg">{errorMsg}</p>}
+        </form>
+      </div>
+    </main>
+        <a href="/" class="back-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+      Back to Home
+    </a>
+        {loginSuccessData && (
+      <script define:vars={{ sessionData: loginSuccessData }}>
+        // Simpan data sesi yang didapat dari server ke localStorage
+        localStorage.setItem("staffSession", JSON.stringify({
+          ...sessionData,
+          loggedAt: new Date().toISOString()
+        }));
+        
+        // Redirect ke halaman admin
+        window.location.href = "/admin";
+      </script>
+    )}
+  </body>
+</html>

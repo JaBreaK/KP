@@ -1,0 +1,203 @@
+---
+// src/pages/banner.astro
+
+import { supabase } from '../../lib/supabase';
+
+
+// 1. Fetch data di sisi server saat halaman di-build/request
+const { data: banners, error } = await supabase
+  .from('banner')
+  .select('*')
+  .order('nama', { ascending: true });
+
+if (error) {
+  console.error('Error fetching banners:', error);
+  // Bisa tampilkan halaman error jika perlu
+}
+
+// Konfigurasi untuk client-side script
+const BUCKET_NAME = 'images';
+const DEFAULT_IMAGE_URL = '/public/image.svg';
+const STORAGE_PUBLIC_BASE = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/`;
+
+function resolveImageUrl(gambarField: string | null) {
+  if (!gambarField) return DEFAULT_IMAGE_URL;
+  if (gambarField.startsWith('http')) return gambarField;
+  return STORAGE_PUBLIC_BASE + gambarField;
+}
+---
+
+  <main class="p-4 md:p-6 lg:p-8">
+    <div class="flex flex-col lg:flex-row gap-6">
+
+      <div id="banner-container" class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {banners && banners.length > 0 ? (
+          banners.map((item) => (
+            <div id={`banner-${item.id}`} class="bg-white rounded-lg shadow p-4 flex flex-col">
+              <img
+                src={resolveImageUrl(item.gambar)}
+                alt={item.nama || 'banner'}
+                class="w-full h-32 object-cover rounded"
+              />
+              <h3 class="mt-2 text-lg font-semibold text-gray-800">{item.nama || '(no name)'}</h3>
+              <div class="mt-auto pt-2 flex justify-end space-x-2">
+                <button
+                  class="btn-edit px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+                  data-id={item.id}
+                  data-nama={item.nama}
+                  data-gambar={item.gambar}
+                >
+                  Edit
+                </button>
+                <button
+                  class="btn-delete px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                  data-id={item.id}
+                  data-gambar={item.gambar}
+                >
+                  Hapus
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p class="text-gray-500 col-span-full">Belum ada banner.</p>
+        )}
+        {error && <p class="text-red-500 col-span-full">Gagal memuat data banner.</p>}
+      </div>
+
+      <div class="w-full lg:w-80 bg-white rounded-lg shadow p-4 self-start">
+        <h3 class="text-lg font-medium text-gray-800 mb-4">Tambah / Edit Banner</h3>
+        <form id="banner-form" class="flex flex-col space-y-3">
+          <input type="hidden" id="banner-id" />
+          <input type="hidden" id="banner-old-gambar" />
+          <div>
+            <label for="banner-nama" class="block text-sm font-medium text-gray-700">Nama Banner</label>
+            <input type="text" id="banner-nama" class="mt-1 w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Masukkan nama banner" required />
+          </div>
+          <div>
+            <label for="banner-gambar" class="block text-sm font-medium text-gray-700">Pilih Gambar (jpg/png)</label>
+            <input type="file" accept="image/*" id="banner-gambar" class="mt-1 w-full text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Preview Gambar</label>
+            <img id="banner-preview" src={DEFAULT_IMAGE_URL} alt="Preview" class="w-full h-32 object-cover rounded border mt-1 bg-gray-50" />
+          </div>
+          <div class="flex justify-end space-x-2 pt-2">
+            <button type="button" id="btn-reset" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Reset</button>
+            <button type="submit" id="btn-submit" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+<script define:vars={{ DEFAULT_IMAGE_URL, STORAGE_PUBLIC_BASE }}>
+    // Client-side script untuk interaktivitas
+    const form = document.getElementById('banner-form');
+    const inputId = document.getElementById('banner-id');
+    const inputOldGambar = document.getElementById('banner-old-gambar');
+    const inputNama = document.getElementById('banner-nama');
+    const inputGambar = document.getElementById('banner-gambar');
+    const previewImg = document.getElementById('banner-preview');
+    const btnReset = document.getElementById('btn-reset');
+    const btnSubmit = document.getElementById('btn-submit');
+    const bannerContainer = document.getElementById('banner-container');
+
+    function resetForm() {
+      form.reset();
+      inputId.value = '';
+      inputOldGambar.value = '';
+      previewImg.src = DEFAULT_IMAGE_URL;
+      btnSubmit.textContent = 'Submit';
+    }
+
+    // Event listener untuk tombol edit
+    bannerContainer.addEventListener('click', (e) => {
+      if (e.target.classList.contains('btn-edit')) {
+        const button = e.target;
+        inputId.value = button.dataset.id;
+        inputNama.value = button.dataset.nama;
+        inputOldGambar.value = button.dataset.gambar || '';
+        previewImg.src = button.dataset.gambar || DEFAULT_IMAGE_URL;
+        btnSubmit.textContent = 'Update';
+        form.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    // Event listener untuk tombol hapus
+    bannerContainer.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('btn-delete')) {
+        const button = e.target;
+        const id = button.dataset.id;
+        const gambar = button.dataset.gambar;
+
+        if (!confirm('Yakin ingin menghapus banner ini?')) return;
+
+        try {
+          const response = await fetch('/api/banner', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, gambar }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.message);
+          
+          alert('Banner berhasil dihapus');
+          document.getElementById(`banner-${id}`).remove();
+        } catch (error) {
+          console.error('Gagal hapus banner:', error);
+          alert('Gagal hapus banner: ' + error.message);
+        }
+      }
+    });
+    
+    // Preview gambar saat dipilih
+    inputGambar.addEventListener('change', () => {
+      const file = inputGambar.files[0];
+      if (file) {
+        previewImg.src = URL.createObjectURL(file);
+      }
+    });
+
+    btnReset.addEventListener('click', resetForm);
+
+    // Handle submit form (tambah/edit)
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('id', inputId.value);
+      formData.append('nama', inputNama.value);
+      formData.append('old_gambar', inputOldGambar.value);
+      if (inputGambar.files[0]) {
+        formData.append('gambar', inputGambar.files[0]);
+      }
+
+      // Validasi
+      if (!formData.get('nama')) {
+        alert('Nama banner harus diisi');
+        return;
+      }
+      if (!inputId.value && !inputGambar.files[0]) {
+        alert('Gambar harus diisi untuk banner baru');
+        return;
+      }
+
+      const method = inputId.value ? 'POST' : 'POST'; // Tetap POST, bedakan di API route
+
+      try {
+        const response = await fetch('/api/banner', {
+          method: method,
+          body: formData, // FormData tidak perlu header Content-Type
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message);
+        
+        alert(`Banner berhasil ${inputId.value ? 'diupdate' : 'ditambahkan'}`);
+        // Refresh halaman untuk melihat perubahan
+        window.location.reload();
+      } catch (error) {
+        console.error('Error submit form:', error);
+        alert('Gagal menyimpan banner: ' + error.message);
+      }
+    });
+  </script>

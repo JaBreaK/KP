@@ -1,0 +1,121 @@
+---
+// Import supabase client yang membaca env
+import { supabase } from '../lib/supabase';
+
+// Fetch data banner di server (Astro SSR)
+const { data: banners, error } = await supabase
+  .from('banner')
+  .select('gambar')        // atau kolom lain jika perlu
+  .order('nama', { ascending: true }); // sesuai urutan
+
+if (error) {
+  console.error('Error fetch banner SSR:', error);
+  // fallback: bisa set banners = [] atau default images
+}
+
+// Proses jadi array URL
+const bannerUrls = Array.isArray(banners)
+  ? banners
+      .map(item => {
+        let url = item.gambar;
+        // jika di DB simpan path saja
+        if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+          // supabase.ts biasanya sudah kenal BUCKET, tapi di SSR kita tahu PUBLIC URL:
+          // Bisa gunakan import.meta.env.VITE_SUPABASE_URL jika perlu:
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const bucket = 'images'; // sesuaikan
+          url = `${supabaseUrl}/storage/v1/object/public/${bucket}/${url}`;
+        }
+        return url;
+      })
+      .filter(url => !!url)
+  : [];
+---
+<section id="hero-carousel" class="relative overflow-hidden h-screen hero-section">
+  <div id="slides" class="absolute inset-0">
+    {bannerUrls.length === 0 ? (
+      // fallback: satu slide statis
+      <div class="absolute inset-0 bg-center bg-cover opacity-100 transition-opacity duration-1000" style="background-image: url('/default-banner.jpg')"></div>
+    ) : (
+      bannerUrls.map((url, idx) => (
+        // semua slide di-generate, tapi kita set kelas awal opacity-0 kecuali idx=0 nanti JS client toggling
+        <div
+          class="absolute inset-0 bg-center bg-cover filter blur-[3px] opacity-0 transition-opacity duration-1000"
+          data-index={idx}
+          style={`background-image: url('${url}')`}
+        ></div>
+      ))
+    )}
+  </div>
+
+  <!-- overlay & konten hero -->
+  <div class="absolute inset-0 bg-black/30 dark:bg-black/50"></div>
+  <div class="relative z-10 container-custom flex items-center justify-center h-full">
+    <div class="text-white text-center px-4">
+      <h1 class="text-4xl sm:text-6xl font-bold">
+        <span class="font-brand1 text-[#D4AF37]">DYE</span>
+        <span class="font-display">APPAREL</span>
+      </h1>
+      <p class="mt-4 text-xl">Custom Tanpa Batas</p>
+      <a href="https://wa.me/c/6289601651641" target="_blank" class="mt-6 inline-block btn-outline">
+        Custom Sekarang
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Skrip untuk rotasi slide di client -->
+<script type="module" client:load>
+  // Logika carousel client hanya untuk toggling opacity slide yang sudah di-generate SSR
+  let carouselIntervalId = null;
+  let carouselCurrentIndex = 0;
+
+  function initHeroCarousel() {
+    const slidesContainer = document.getElementById('slides');
+    if (!slidesContainer) return;
+
+    // Pastikan semua slide disembunyikan, lalu tampilkan index 0
+    const slides = Array.from(slidesContainer.children);
+    if (slides.length === 0) return;
+
+    // sembunyikan semua
+    slides.forEach(slide => {
+      slide.classList.remove('opacity-100');
+      slide.classList.add('opacity-0');
+    });
+    // tampilkan slide pertama
+    slides[0].classList.remove('opacity-0');
+    slides[0].classList.add('opacity-100');
+    carouselCurrentIndex = 0;
+
+    // interval
+    if (carouselIntervalId) clearInterval(carouselIntervalId);
+    carouselIntervalId = setInterval(() => {
+      // sembunyikan current
+      slides[carouselCurrentIndex].classList.remove('opacity-100');
+      slides[carouselCurrentIndex].classList.add('opacity-0');
+      // next index
+      carouselCurrentIndex = (carouselCurrentIndex + 1) % slides.length;
+      slides[carouselCurrentIndex].classList.remove('opacity-0');
+      slides[carouselCurrentIndex].classList.add('opacity-100');
+    }, 5000);
+  }
+
+  function cleanupHeroCarousel() {
+    if (carouselIntervalId) {
+      clearInterval(carouselIntervalId);
+      carouselIntervalId = null;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initHeroCarousel();
+  });
+  // Jika kamu menggunakan Astro partial navigation / Turbo:
+  document.addEventListener('astro:page-load', () => {
+    initHeroCarousel();
+  });
+  document.addEventListener('astro:before-leave', () => {
+    cleanupHeroCarousel();
+  });
+</script>

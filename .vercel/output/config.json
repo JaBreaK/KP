@@ -1,0 +1,84 @@
+{
+	"version": 3,
+	"routes": [
+		{
+			"handle": "filesystem"
+		},
+		{
+			"src": "^/_astro/(.*)$",
+			"headers": {
+				"cache-control": "public, max-age=31536000, immutable"
+			},
+			"continue": true
+		},
+		{
+			"src": "^/_server-islands/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/_image/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/404/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/bahan/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/banner/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/katalog/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/koleksi/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/coba/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/kategori/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/login/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/produk/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/produk/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/recovery/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/tentangkami/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/.*$",
+			"dest": "_render",
+			"status": 404
+		}
+	]
+}

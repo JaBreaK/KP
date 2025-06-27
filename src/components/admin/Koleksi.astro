@@ -1,0 +1,185 @@
+---
+// src/pages/koleksi.astro
+
+import { supabase } from '../../lib/supabase';
+
+
+// 1. Fetch data di sisi server saat halaman dimuat
+const { data: koleksiList, error } = await supabase
+  .from('koleksi')
+  .select('*')
+  .order('nama', { ascending: true });
+
+if (error) {
+  console.error('Error fetching koleksi:', error.message);
+  // Kamu bisa redirect ke halaman error jika perlu
+}
+
+// Konfigurasi untuk client-side script dan render
+const DEFAULT_IMAGE_URL = '/public/image.svg';
+
+// Helper untuk memastikan URL gambar valid
+function resolveImageUrl(gambarField: string | null) {
+  if (!gambarField) return DEFAULT_IMAGE_URL;
+  // Jika sudah URL lengkap, langsung gunakan
+  if (gambarField.startsWith('http')) return gambarField;
+  // Jika hanya path, perlu digabungkan (sesuaikan jika perlu)
+  // Tapi asumsinya kita selalu simpan URL lengkap di DB
+  return gambarField; 
+}
+---
+
+
+  <main class="p-4 md:p-6 lg:p-8">
+    <div class="flex flex-col lg:flex-row gap-6">
+
+      <div id="koleksi-container" class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {koleksiList && koleksiList.length > 0 ? (
+          koleksiList.map((item) => (
+            <div class="bg-white rounded-lg shadow p-4 flex flex-col">
+              <img
+                src={resolveImageUrl(item.gambar)}
+                alt={item.nama || 'koleksi'}
+                class="w-full h-32 object-cover rounded"
+              />
+              <h3 class="mt-2 text-lg font-semibold text-gray-800">{item.nama || '(no name)'}</h3>
+              <div class="mt-auto pt-2 flex justify-end">
+                <button
+                  class="btn-edit px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+                  data-id={item.id}
+                  data-nama={item.nama}
+                  data-gambar={item.gambar}
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p class="text-gray-500 col-span-full">Belum ada koleksi.</p>
+        )}
+        {error && <p class="text-red-500 col-span-full">Gagal memuat data koleksi.</p>}
+      </div>
+
+      <div id="edit-panel" class="w-full lg:w-80 bg-white rounded-lg shadow p-4 self-start hidden">
+        <h3 class="text-lg font-medium text-gray-800 mb-4">Edit Koleksi</h3>
+        <form id="koleksi-form" class="flex flex-col space-y-3">
+          <input type="hidden" id="koleksi-id" />
+          <input type="hidden" id="koleksi-old-gambar" />
+          <div hidden>
+            <label for="koleksi-nama" class="block text-sm font-medium text-gray-700">Nama Koleksi</label>
+            <input type="text" id="koleksi-nama" class="mt-1 w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nama koleksi" required />
+          </div>
+          <div>
+            <label for="koleksi-gambar" class="block text-sm font-medium text-gray-700">Ganti Gambar (opsional)</label>
+            <input type="file" accept="image/*" id="koleksi-gambar" class="mt-1 w-full text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Preview Gambar</label>
+            <img id="koleksi-preview" src={DEFAULT_IMAGE_URL} alt="Preview" class="w-full h-32 object-cover rounded border mt-1 bg-gray-50" />
+          </div>
+          <div class="flex justify-end space-x-2 pt-2">
+            <button type="button" id="btn-cancel" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Batal</button>
+            <button type="submit" id="btn-submit" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script define:vars={{ DEFAULT_IMAGE_URL }}>
+    // Client-side script untuk interaktivitas
+    const container = document.getElementById('koleksi-container');
+    const editPanel = document.getElementById('edit-panel');
+    const form = document.getElementById('koleksi-form');
+    const inputId = document.getElementById('koleksi-id');
+    const inputOldGambar = document.getElementById('koleksi-old-gambar');
+    const inputNama = document.getElementById('koleksi-nama');
+    const inputGambar = document.getElementById('koleksi-gambar');
+    const previewImg = document.getElementById('koleksi-preview');
+    const btnCancel = document.getElementById('btn-cancel');
+    const btnSubmit = document.getElementById('btn-submit');
+
+    // Fungsi untuk menutup & mereset form
+    function closeEditForm() {
+      form.reset();
+      inputId.value = '';
+      inputOldGambar.value = '';
+      previewImg.src = DEFAULT_IMAGE_URL;
+      editPanel.classList.add('hidden');
+    }
+
+    // Event listener untuk semua tombol 'Edit'
+    container.addEventListener('click', (e) => {
+      const editButton = e.target.closest('.btn-edit');
+      if (editButton) {
+        // Ambil data dari atribut data-*
+        const { id, nama, gambar } = editButton.dataset;
+        
+        // Isi form
+        inputId.value = id;
+        inputNama.value = nama;
+        inputOldGambar.value = gambar || '';
+        previewImg.src = gambar || DEFAULT_IMAGE_URL;
+
+        // Tampilkan panel edit
+        editPanel.classList.remove('hidden');
+        editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    // Preview saat memilih file baru
+    inputGambar.addEventListener('change', () => {
+      const file = inputGambar.files[0];
+      if (file) {
+        previewImg.src = URL.createObjectURL(file);
+      } else {
+        // Jika batal pilih file, kembalikan ke gambar lama
+        previewImg.src = inputOldGambar.value || DEFAULT_IMAGE_URL;
+      }
+    });
+
+    btnCancel.addEventListener('click', closeEditForm);
+
+    // Handle submit form (hanya untuk edit)
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData();
+      formData.append('id', inputId.value);
+      formData.append('nama', inputNama.value.trim());
+      formData.append('old_gambar', inputOldGambar.value);
+
+      if (inputGambar.files[0]) {
+        formData.append('gambar', inputGambar.files[0]);
+      }
+      
+      if (!formData.get('nama')) {
+        alert('Nama koleksi tidak boleh kosong.');
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = 'Menyimpan...';
+
+      try {
+        const response = await fetch('/api/koleksi', {
+          method: 'POST',
+          body: formData,
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message || 'Terjadi kesalahan pada server.');
+        }
+
+        alert('Koleksi berhasil diupdate!');
+        window.location.reload(); // Reload halaman untuk melihat data baru
+
+      } catch (error) {
+        console.error('Error submitting form:', error);
+        alert('Gagal menyimpan perubahan: ' + error.message);
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Simpan';
+      }
+    });
+  </script>
