@@ -1,5 +1,5 @@
 ---
-// src/pages/produk/[...slug].astro (FINAL - Simpan ke DB & Buka GMail)
+// src/pages/produk/[...slug].astro (FINAL DENGAN FORM WA TERPISAH)
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
@@ -12,28 +12,14 @@ export async function getStaticPaths() {
 }
 
 const { slug } = Astro.params;
-
-// DIUBAH: Kita ambil data produk DAN data kontak bisnismu sekaligus
-const [ productResult, kontakResult ] = await Promise.all([
-    supabase.from('produk').select('nama, gambar, kategori, deskripsi').eq('slug', slug).single(),
-    supabase.from('kontak').select('email').eq('id', 1).single()
-]);
-
-const post = productResult.data;
-const infoKontak = kontakResult.data;
+const { data: post } = await supabase.from('produk').select('nama, gambar, kategori, deskripsi').eq('slug', slug).single();
 
 if (!post) return Astro.redirect('/404');
 
-// Siapkan email tujuan dinamis dari database
-const recipientEmail = infoKontak?.email || 'email.fallback@dyeapparel.com';
-
-// =========================================================================
-// PERUBAHAN UTAMA DI SINI: Membuat autoDescription yang super lengkap
-// =========================================================================
 // Ambil URL halaman saat ini dari object Astro
 const productUrl = Astro.url.href;
 
-// Gabungkan semua informasi ke dalam satu template canggih
+// Deskripsi otomatis sekarang lebih ringkas, karena WA sudah dipisah
 const autoDescription = `Halo Dye Apparel,
 
 Saya tertarik untuk custom order produk yang saya lihat di halaman berikut:
@@ -46,15 +32,8 @@ Kategori: "${post.kategori.join(', ')}"
 --- Detail Kebutuhan Saya ---
 - Perkiraan Jumlah: [Mohon diisi]
 - Ukuran & Jumlahnya: [Mohon diisi]
-- Warna: [Mohon diisi]
 
---- Kontak Saya ---
-- Nomor WA/HP: [Mohon diisi agar mudah dihubungi]
-
-Mohon informasinya mengenai harga dan waktu pengerjaan.
-
-Terima kasih.`;
-// =========================================================================
+Mohon informasinya. Terima kasih.`;
 ---
 <Layout title={`${post.nama} – Dye Apparel`} description={post.deskripsi}>
   <Header />
@@ -68,18 +47,12 @@ Terima kasih.`;
       
       <div class="flex flex-wrap gap-4 items-center justify-between">
         <h1 class="text-4xl font-bold text-gray-900 dark:text-white">{post.nama}</h1>
-        
-        <button 
-            id="open-modal-button"
-            data-recipient-email={recipientEmail}
-            class="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:focus:ring-primary-800 font-semibold"
-        >
+        <button id="open-modal-button" class="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:focus:ring-primary-800 font-semibold">
           Custom Sekarang
         </button>
       </div>
         
       <img src={post.gambar} alt={post.nama} class="w-full h-auto rounded-xl object-cover shadow-lg" />
-      
       <div class="prose prose-lg dark:prose-invert" set:html={post.deskripsi} />
 
       <div class="flex flex-wrap gap-2">
@@ -102,19 +75,27 @@ Terima kasih.`;
     <form id="custom-message-form" class="p-5 space-y-4">
       <div>
         <label for="modal-nama" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Anda</label>
-        <input type="text" id="modal-nama" name="nama" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+        <input type="text" id="modal-nama" name="nama" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" placeholder="Marco"/>
       </div>
-      <div>
-        <label for="modal-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Anda</label>
-        <input type="email" id="modal-email" name="email" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="modal-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Anda</label>
+          <input type="email" id="modal-email" name="email" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" placeholder="email@example.com" />
+        </div>
+        <div>
+          <label for="modal-wa" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nomor WA/HP</label>
+          <input type="tel" id="modal-wa" name="no_wa" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" placeholder="628123456789"/>
+        </div>
       </div>
+      
       <div>
-        <label for="modal-deskripsi" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pesan (Otomatis)</label>
-        <textarea id="modal-deskripsi" name="deskripsi" rows="4" readonly class="block w-full px-3 py-2 bg-gray-100 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 sm:text-sm">{autoDescription}</textarea>
+        <label for="modal-deskripsi" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Detail Permintaan</label>
+        <textarea id="modal-deskripsi" name="deskripsi" rows="8" class="block w-full px-3 py-2 bg-gray-100 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm">{autoDescription}</textarea>
       </div>
       <div class="pt-2">
         <button type="submit" id="submit-modal-button" class="w-full bg-primary-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-primary-700 inline-flex items-center justify-center">
-            <span class="btn-text">Kirim & Buka Email</span>
+            <span class="btn-text">Kirim Permintaan</span>
             <span class="loading-spinner hidden ml-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
         </button>
         <div id="modal-feedback" class="mt-3 text-center text-sm"></div>
@@ -125,16 +106,16 @@ Terima kasih.`;
 
 <script is:inline>
   function setupProductPage() {
+    // ... (logic untuk show/hide modal tidak berubah) ...
     const openModalBtn = document.getElementById('open-modal-button');
     const modal = document.getElementById('contact-modal');
     const modalPanel = document.getElementById('modal-panel');
     const closeModalBtn = document.getElementById('close-modal-button');
     const contactForm = document.getElementById('custom-message-form');
 
-    if (!openModalBtn || !modal || !closeModalBtn || !contactForm) return;
-
-    if (openModalBtn.dataset.listenerAttached === 'true') return;
-
+    if (!openModalBtn || !modal || !closeModalBtn || !contactForm || openModalBtn.dataset.listenerAttached === 'true') return;
+    
+    // ...
     const showModal = () => {
       modal.classList.remove('hidden');
       setTimeout(() => {
@@ -148,12 +129,12 @@ Terima kasih.`;
       modal.classList.add('opacity-0');
       setTimeout(() => modal.classList.add('hidden'), 300);
     };
-
     openModalBtn.addEventListener('click', showModal);
     closeModalBtn.addEventListener('click', hideModal);
     modal.addEventListener('click', (event) => { if (event.target === modal) hideModal(); });
     openModalBtn.dataset.listenerAttached = 'true';
-
+    // ...
+    
     contactForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       
@@ -162,63 +143,52 @@ Terima kasih.`;
       const btnText = submitButton.querySelector('.btn-text');
       const spinner = submitButton.querySelector('.loading-spinner');
       
-      btnText.textContent = 'Menyimpan...';
+      btnText.textContent = 'Mengirim...';
       spinner.classList.remove('hidden');
       submitButton.disabled = true;
       feedbackDiv.textContent = '';
 
+      // DIUBAH: Ambil juga nilai dari input WA
       const dataToSend = {
         nama: document.getElementById('modal-nama').value,
         email: document.getElementById('modal-email').value,
+        no_wa: document.getElementById('modal-wa').value, // <-- Tambahan
         deskripsi: document.getElementById('modal-deskripsi').value,
       };
 
       try {
-        // LANGKAH A: Simpan ke Supabase
         const response = await fetch('/api/save-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSend),
         });
+
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'Gagal mengirim.');
 
-        // Jika berhasil, lanjutkan ke Langkah B
         feedbackDiv.className = 'mt-3 text-center text-sm text-green-600';
-        feedbackDiv.textContent = 'Sukses! Membuka aplikasi email...';
+        feedbackDiv.textContent = 'Sukses! Pesan Anda telah terkirim. Terima kasih.';
         
-        // LANGKAH B: Buka GMail
-        const recipientEmail = openModalBtn.dataset.recipientEmail;
-        const subject = `Minat Custom (via Website) - ${dataToSend.nama}`;
-        const body = dataToSend.deskripsi;
-        const mailtoLink = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        
-        // Beri jeda agar user bisa baca notif, lalu redirect dan tutup modal
         setTimeout(() => {
-            window.location.href = mailtoLink;
             hideModal();
             contactForm.reset();
             feedbackDiv.textContent = '';
-        }, 1500);
+        }, 2500);
 
       } catch (err) {
         feedbackDiv.className = 'mt-3 text-center text-sm text-red-600';
         feedbackDiv.textContent = `Error: ${err.message}`;
       } finally {
-        // Kembalikan tombol ke keadaan semula setelah jeda
         setTimeout(() => {
-            btnText.textContent = 'Kirim & Buka Email';
+            btnText.textContent = 'Kirim Permintaan';
             spinner.classList.add('hidden');
             submitButton.disabled = false;
-        }, 2000);
+        }, 1000);
       }
     });
   }
 
   document.addEventListener('astro:page-load', setupProductPage);
-  if (document.readyState !== 'loading') {
-    setupProductPage();
-  } else {
-    document.addEventListener('DOMContentLoaded', setupProductPage);
-  }
+  if (document.readyState !== 'loading') setupProductPage();
+  else document.addEventListener('DOMContentLoaded', setupProductPage);
 </script>

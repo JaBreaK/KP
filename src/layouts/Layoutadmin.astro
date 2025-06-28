@@ -102,6 +102,7 @@ const {
   </style>
 </head>
 <body class="antialiased text-gray-800 dark:text-gray-900">
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden md:hidden"></div>
   <div class="flex h-screen bg-gray-100 dark:bg-gray-800/50">
     <aside id="sidebar"
            class="fixed inset-y-0 left-0 w-64 bg-white border-r transform -translate-x-full transition-transform duration-200 ease-in-out z-50
@@ -201,121 +202,101 @@ const {
     </div>
   </div>
 
-  <script type="module" is:client>
-    // Logout handler
-    document.getElementById("btn-logout")?.addEventListener("click", () => {
-      localStorage.removeItem("staffSession");
-      window.location.replace("/login");
-    });
-    // Ganti password
-    document.getElementById("recovery")?.addEventListener("click", () => {
-      window.location.replace("/recovery");
-    });
+<script is:inline>
+    // --- KONTROL LOADING BAR NPROGRESS ---
+    document.addEventListener('astro:before-preparation', () => NProgress.start());
+    document.addEventListener('astro:after-swap', () => NProgress.done());
 
-    // Dropdown profil
-    const profileButton = document.getElementById('profile-button');
-    const profileMenu = document.getElementById('profile-menu');
-    if (profileButton) {
-      profileButton.addEventListener("click", (e) => {
-        e.stopPropagation();
-        profileMenu.classList.toggle('hidden');
-      });
-      document.addEventListener("click", (e) => {
-        if (!profileButton.contains(e.target) && !profileMenu.contains(e.target)) {
-          profileMenu.classList.add("hidden");
+    // --- FUNGSI UTAMA UNTUK SETUP SEMUA INTERAKSI ---
+    function setupAdminLayout() {
+        
+        // 1. PENGECEKAN SESI (WAJIB ADA DI PALING ATAS)
+        if (!localStorage.getItem("staffSession")) {
+            window.location.href = "/login"; 
+            return; 
         }
-      });
-    }
 
-    // Ambil nama dari email di localStorage staffSession
-    try {
-      const session = JSON.parse(localStorage.getItem("staffSession"));
-      const email = session?.email ?? "";
-      if (email.includes("@")) {
-        const name = email.split("@")[0].toUpperCase();
-        document.getElementById("admin-name").textContent = name;
-      }
-    } catch (e) {
-      console.warn("Gagal parsing staffSession:", e);
-    }
-
-    // Highlight active link di sidebar
-    document.addEventListener("DOMContentLoaded", () => {
-      const currentPath = window.location.pathname;
-      const links = document.querySelectorAll(".sidebar-link");
-      links.forEach(link => {
-        const path = link.getAttribute("data-path");
-        if (path && (currentPath === path || currentPath.startsWith(path + "/"))) {
-          link.classList.add("active");
-        }
-      });
-    });
-  </script>
-
-  <!-- Script toggling sidebar di mobile -->
-  <script is:client>
-    document.addEventListener("DOMContentLoaded", () => {
+        // 2. Sidebar Mobile
       const sidebar = document.getElementById("sidebar");
       const overlay = document.getElementById("sidebar-overlay");
       const btnToggle = document.getElementById("btn-sidebar-toggle");
 
       if (sidebar && overlay && btnToggle) {
-        const openSidebar = () => {
-          sidebar.classList.remove("-translate-x-full");
-          overlay.classList.remove("hidden");
-        };
-        const closeSidebar = () => {
-          sidebar.classList.add("-translate-x-full");
-          overlay.classList.add("hidden");
-        };
-
-        btnToggle.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (sidebar.classList.contains("-translate-x-full")) {
-            openSidebar();
-          } else {
-            closeSidebar();
-          }
+        const openSidebar = () => { sidebar.classList.remove("-translate-x-full"); overlay.classList.remove("hidden"); };
+        const closeSidebar = () => { sidebar.classList.add("-translate-x-full"); overlay.classList.add("hidden"); };
+        
+        // Hapus listener lama untuk mencegah duplikasi, lalu pasang yang baru
+        btnToggle.replaceWith(btnToggle.cloneNode(true));
+        document.getElementById("btn-sidebar-toggle").addEventListener("click", e => {
+            e.stopPropagation();
+            sidebar.classList.contains("-translate-x-full") ? openSidebar() : closeSidebar();
         });
-
-        // Klik overlay tutup sidebar
-        overlay.addEventListener("click", () => {
-          closeSidebar();
-        });
-
-        // Klik di luar sidebar & tombol, tutup sidebar
-        document.addEventListener("click", (e) => {
-          if (
-            !sidebar.contains(e.target) &&
-            !btnToggle.contains(e.target) &&
-            !sidebar.classList.contains("-translate-x-full")
-          ) {
-            closeSidebar();
-          }
-        });
-
-        // Pastikan ketika resize window
-        const mql = window.matchMedia("(min-width: 768px)");
-        mql.addEventListener("change", (e) => {
-          if (e.matches) {
-            // Desktop: tampilkan sidebar, sembunyikan overlay
-            sidebar.classList.remove("-translate-x-full");
-            overlay.classList.add("hidden");
-          } else {
-            // Mobile: sembunyikan sidebar default
-            sidebar.classList.add("-translate-x-full");
-          }
-        });
-        // Inisialisasi awal
-        if (window.matchMedia("(min-width: 768px)").matches) {
-          sidebar.classList.remove("-translate-x-full");
-          overlay.classList.add("hidden");
-        } else {
-          sidebar.classList.add("-translate-x-full");
-        }
+        
+        overlay.addEventListener("click", closeSidebar);
+        document.getElementById("sidebar-overlay").addEventListener("click", closeSidebar);
       }
+
+        // 3. LOGIC DROPDOWN PROFIL & LOGOUT
+        const profileButton = document.getElementById('profile-button');
+        const profileMenu = document.getElementById('profile-menu');
+        const logoutButton = document.getElementById('btn-logout');
+
+        if (profileButton && profileMenu && !profileButton.dataset.listener) {
+            profileButton.addEventListener("click", (e) => {
+                e.stopPropagation();
+                profileMenu.classList.toggle('hidden');
+            });
+            profileButton.dataset.listener = 'true';
+        }
+        if(logoutButton && !logoutButton.dataset.listener) {
+            logoutButton.addEventListener('click', () => {
+                localStorage.removeItem("staffSession");
+                window.location.href = "/login";
+            });
+            logoutButton.dataset.listener = 'true';
+        }
+        
+        // 4. LOGIC HIGHLIGHT SIDEBAR LINK
+        const currentPath = window.location.pathname;
+        const links = document.querySelectorAll(".sidebar-link");
+        links.forEach(link => {
+            link.classList.remove("active");
+            const path = link.getAttribute("data-path");
+            if (path && (currentPath === path || (path !== '/admin' && currentPath.startsWith(path)))) {
+                link.classList.add("active");
+            }
+        });
+        
+        // 6. AMBIL NAMA ADMIN DARI LOCALSTORAGE (DENGAN KAPITAL)
+try {
+    const sessionData = localStorage.getItem("staffSession");
+    if (sessionData) {
+        const session = JSON.parse(sessionData);
+        const email = session?.user?.email ?? (session?.email ?? "");
+        const adminNameEl = document.getElementById("admin-name");
+        if (email && adminNameEl) {
+            // DITAMBAHKAN .toUpperCase() untuk membuat teks jadi kapital
+            const name = email.split("@")[0] || "Admin";
+            adminNameEl.textContent = name.toUpperCase();
+        }
+    }
+} catch (e) { console.error("Gagal parse staffSession:", e); }
+        
+    } // Akhir dari fungsi setupAdminLayout
+
+    // --- EKSEKUSI SCRIPT ---
+    document.addEventListener('astro:page-load', setupAdminLayout);
+    setupAdminLayout(); // Panggil juga saat halaman pertama kali dimuat
+
+    // Listener global untuk menutup dropdown jika klik di luar
+    document.addEventListener("click", (e) => {
+        const profileMenu = document.getElementById('profile-menu');
+        const profileButton = document.getElementById('profile-button');
+        if (profileMenu && profileButton && !profileButton.contains(e.target) && !profileMenu.contains(e.target)) {
+            profileMenu.classList.add("hidden");
+        }
     });
-  </script>
+</script>
 
   <script is:inline>
     // Dibungkus agar tidak bentrok dengan script lain
@@ -432,100 +413,6 @@ const {
     })();
   </script>
 
-<script is:inline>
-    // --- KONTROL LOADING BAR NPROGRESS ---
-    document.addEventListener('astro:before-preparation', () => NProgress.start());
-    document.addEventListener('astro:after-swap', () => NProgress.done());
 
-    // --- FUNGSI UTAMA UNTUK SETUP SEMUA INTERAKSI ---
-    function setupAdminLayout() {
-        
-        // 1. PENGECEKAN SESI (TETAP DI PALING ATAS)
-        if (!localStorage.getItem("staffSession")) {
-            window.location.href = "/login"; 
-            return; 
-        }
-
-        // 2. LOGIC SIDEBAR TOGGLE UNTUK MOBILE
-        const sidebar = document.getElementById("sidebar");
-        const btnToggle = document.getElementById("btn-sidebar-toggle");
-        if (sidebar && btnToggle && !btnToggle.dataset.listenerAttached) {
-            btnToggle.addEventListener("click", (e) => {
-                e.stopPropagation();
-                sidebar.classList.toggle("-translate-x-full");
-            });
-            btnToggle.dataset.listenerAttached = 'true';
-        }
-
-        // 3. LOGIC DROPDOWN PROFIL & LOGOUT
-        const profileButton = document.getElementById('profile-button');
-        const profileMenu = document.getElementById('profile-menu');
-        const logoutButton = document.getElementById('btn-logout');
-
-        if (profileButton && profileMenu && !profileButton.dataset.listenerAttached) {
-            profileButton.addEventListener("click", (e) => {
-                e.stopPropagation();
-                profileMenu.classList.toggle('hidden');
-            });
-            profileButton.dataset.listenerAttached = 'true';
-        }
-        if(logoutButton && !logoutButton.dataset.listenerAttached) {
-            logoutButton.addEventListener('click', () => {
-                localStorage.removeItem("staffSession");
-                window.location.href = "/login";
-            });
-            logoutButton.dataset.listenerAttached = 'true';
-        }
-        
-        // 4. LOGIC HIGHLIGHT SIDEBAR LINK
-        const currentPath = window.location.pathname;
-        const links = document.querySelectorAll(".sidebar-link");
-        links.forEach(link => {
-            link.classList.remove("active"); 
-            const path = link.getAttribute("data-path");
-            if (path && (currentPath === path || (path !== '/admin' && currentPath.startsWith(path)))) {
-                link.classList.add("active");
-            }
-        });
-        
-        // 5. SETUP NOTIFIKASI
-        // (Taruh fungsi setupNotifications() dari jawaban sebelumnya di sini jika kamu memakainya)
-
-        // 6. AMBIL NAMA ADMIN DARI LOCALSTORAGE (DIPERBAIKI DENGAN ERROR HANDLING)
-        try {
-            const sessionData = localStorage.getItem("staffSession");
-            // Cek jika sessionData ada sebelum di-parse
-            if (sessionData) {
-                const session = JSON.parse(sessionData);
-                // Cek struktur data sesi sebelum mengambil email
-                const email = session?.user?.email ?? "";
-                const adminNameEl = document.getElementById("admin-name");
-                if (email && adminNameEl) {
-                    adminNameEl.textContent = email.split("@")[0] || "Admin";
-                }
-            }
-        } catch (e) {
-            // Jika JSON.parse gagal, akan muncul error di console
-            console.error("Gagal parse staffSession dari localStorage. Data mungkin tidak valid:", e);
-        }
-        
-    } // Akhir dari fungsi setupAdminLayout
-
-    // --- EKSEKUSI SCRIPT ---
-    // Jalankan semua setup setiap kali halaman Astro selesai navigasi
-    document.addEventListener('astro:page-load', setupAdminLayout);
-    // Panggil juga saat halaman pertama kali dimuat (setelah DOM siap)
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', setupAdminLayout);
-    } else {
-      setupAdminLayout();
-    }
-
-    // Listener global untuk menutup dropdown jika klik di luar
-    document.addEventListener("click", () => {
-        document.getElementById('profile-menu')?.classList.add("hidden");
-        document.getElementById('notification-dropdown')?.classList.add('hidden');
-    });
-</script>
 </body>
 </html>

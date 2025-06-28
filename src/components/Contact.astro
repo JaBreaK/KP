@@ -1,7 +1,8 @@
 ---
-// src/components/ContactSection.astro
-import { supabase } from '../lib/supabase'; // PENTING: Pastikan path ini benar!
+// src/components/ContactSection.astro (DIPERBARUI DENGAN FORM WA)
+import { supabase } from '../lib/supabase';
 
+// Ambil info kontak dinamis untuk ditampilkan di sisi kiri
 const { data: info, error } = await supabase
   .from('kontak')
   .select()
@@ -11,6 +12,8 @@ const { data: info, error } = await supabase
 if (error) {
   console.error("SERVER ERROR: Gagal mengambil data 'kontak':", error.message);
 }
+
+// Ambil juga email bisnis untuk tujuan 'mailto' di script
 const businessEmail = info?.email || 'dyesablon@gmail.com';
 ---
 
@@ -61,23 +64,31 @@ const businessEmail = info?.email || 'dyesablon@gmail.com';
       <div>
         <div class="card p-6 md:p-8 border border-gray-200 dark:border-gray-700 rounded-lg">
           <h3 class="text-2xl font-semibold mb-6 text-gray-900 dark:text-white">Kirim Pesan Langsung</h3>
-            <form id="finalContactForm" novalidate data-recipient-email={businessEmail}>
-              <div class="mb-4">
-                <label for="form-nama" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Anda</label>
-                <input type="text" id="form-nama" name="nama" required class="w-full px-4 py-2 text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white" placeholder="Tulis nama Anda" />
-              </div>
-              <div class="mb-4">
-                <label for="form-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Anda</label>
-                <input type="email" id="form-email" name="email" required class="w-full px-4 py-2 text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white" placeholder="Untuk balasan kami" />
-              </div>
-              <div class="mb-6">
-                <label for="form-deskripsi" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pesan / Deskripsi</label>
-                <textarea id="form-deskripsi" name="deskripsi" rows="5" required class="w-full px-4 py-2 text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white" placeholder="Tulis pesan Anda..."></textarea>
-              </div>
-              <button type="submit" id="submit-button" class="w-full bg-primary-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-primary-700">
-                Kirim Pesan
-              </button>
-              <div id="form-feedback" class="mt-4 text-center text-sm"></div>
+            <form id="contactPageForm" novalidate data-recipient-email={businessEmail}>
+                <div class="mb-4">
+                    <label for="form-nama" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Anda</label>
+                    <input type="text" id="form-nama" name="nama" required class="w-full px-4 py-2 text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50" placeholder="Tulis nama Anda" />
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="form-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Anda</label>
+                        <input type="email" id="form-email" name="email" required class="w-full px-4 py-2 text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50" placeholder="Untuk balasan kami" />
+                    </div>
+                    <div>
+                        <label for="form-wa" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nomor WA/HP</label>
+                        <input type="tel" id="form-wa" name="no_wa" class="w-full px-4 py-2 text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50" required placeholder="628123456789" />
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label for="form-deskripsi" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pesan / Deskripsi</label>
+                    <textarea id="form-deskripsi" name="deskripsi" rows="5" required class="w-full px-4 py-2 text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/50" placeholder="Tulis pesan Anda..."></textarea>
+                </div>
+                <button type="submit" id="submit-button" class="w-full bg-primary-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-primary-700">
+                    Kirim Pesan
+                </button>
+                <div id="form-feedback" class="mt-4 text-center text-sm"></div>
             </form>
         </div>
       </div>
@@ -86,11 +97,10 @@ const businessEmail = info?.email || 'dyesablon@gmail.com';
 </section>
 
 <script is:inline>
-  function setupContactForm() {
-    const form = document.getElementById('finalContactForm');
-    if (!form) return;
+  function setupContactPageForm() {
+    const form = document.getElementById('contactPageForm');
+    if (!form || form.dataset.listenerAttached === 'true') return;
 
-    // Ambil email dari data attribute, bukan define:vars
     const recipientEmail = form.dataset.recipientEmail;
     
     const handleSubmit = async (event) => {
@@ -99,12 +109,14 @@ const businessEmail = info?.email || 'dyesablon@gmail.com';
       const submitButton = document.getElementById('submit-button');
       const formFeedback = document.getElementById('form-feedback');
 
+      // Ambil semua data dari form, termasuk nomor WA
       const nama = document.getElementById('form-nama').value;
       const email = document.getElementById('form-email').value;
+      const no_wa = document.getElementById('form-wa').value; // <-- BARU
       const deskripsi = document.getElementById('form-deskripsi').value;
 
       if (!nama || !email || !deskripsi) {
-        formFeedback.textContent = 'Harap isi semua kolom.';
+        formFeedback.textContent = 'Harap isi Nama, Email, dan Pesan.';
         formFeedback.className = 'mt-4 text-center text-sm text-red-600';
         return;
       }
@@ -117,7 +129,8 @@ const businessEmail = info?.email || 'dyesablon@gmail.com';
         const response = await fetch('/api/save-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nama, email, deskripsi }),
+          // Kirim juga no_wa ke API
+          body: JSON.stringify({ nama, email, deskripsi, no_wa }),
         });
 
         if (!response.ok) {
@@ -130,7 +143,7 @@ const businessEmail = info?.email || 'dyesablon@gmail.com';
         form.reset(); 
 
         const subject = `Pesan Baru dari Kontak Website - ${nama}`;
-        const body = `Pesan dari: ${nama} (${email})\n\n${deskripsi}`;
+        const body = `Pesan dari: ${nama}\nEmail: ${email}\nNo. WA: ${no_wa || 'Tidak diisi'}\n\n---\n\n${deskripsi}`;
         const mailtoLink = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         
         setTimeout(() => { window.location.href = mailtoLink; }, 500);
@@ -143,16 +156,15 @@ const businessEmail = info?.email || 'dyesablon@gmail.com';
         submitButton.textContent = 'Kirim Pesan';
       }
     };
-
-    // Hapus listener lama (jika ada) dan pasang yang baru
-    if (form.dataset.listenerAttached !== 'true') {
-      form.addEventListener('submit', handleSubmit);
-      form.dataset.listenerAttached = 'true';
-    }
+    
+    form.addEventListener('submit', handleSubmit);
+    form.dataset.listenerAttached = 'true';
   }
 
-  // Jalankan saat navigasi atau saat load awal
-  document.addEventListener('astro:page-load', setupContactForm);
-  // Jalankan juga saat DOM pertama kali siap (untuk kasus tanpa view transitions)
-  document.addEventListener('DOMContentLoaded', setupContactForm);
+  document.addEventListener('astro:page-load', setupContactPageForm);
+  if (document.readyState !== 'loading') {
+    setupContactPageForm();
+  } else {
+    document.addEventListener('DOMContentLoaded', setupContactPageForm);
+  }
 </script>
