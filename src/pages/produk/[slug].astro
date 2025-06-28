@@ -1,5 +1,5 @@
 ---
-// src/pages/produk/[...slug].astro (FINAL DENGAN FORM WA TERPISAH)
+// src/pages/produk/[...slug].astro (FINAL - Simpan ke DB & Buka GMail)
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
@@ -12,28 +12,23 @@ export async function getStaticPaths() {
 }
 
 const { slug } = Astro.params;
-const { data: post } = await supabase.from('produk').select('nama, gambar, kategori, deskripsi').eq('slug', slug).single();
+
+// DIUBAH: Ambil data produk DAN email bisnismu dari tabel 'kontak' sekaligus
+const [ productResult, kontakResult ] = await Promise.all([
+    supabase.from('produk').select('nama, gambar, kategori, deskripsi').eq('slug', slug).single(),
+    supabase.from('kontak').select('email').eq('id', 1).single()
+]);
+
+const post = productResult.data;
+const infoKontak = kontakResult.data;
 
 if (!post) return Astro.redirect('/404');
 
-// Ambil URL halaman saat ini dari object Astro
+// Siapkan email tujuan dinamis dari database untuk dilempar ke client
+const recipientEmail = infoKontak?.email || 'email.fallback@dyeapparel.com';
+
 const productUrl = Astro.url.href;
-
-// Deskripsi otomatis sekarang lebih ringkas, karena WA sudah dipisah
-const autoDescription = `Halo Dye Apparel,
-
-Saya tertarik untuk custom order produk yang saya lihat di halaman berikut:
-${productUrl}
-
---- Detail Produk ---
-Nama: "${post.nama}"
-Kategori: "${post.kategori.join(', ')}"
-
---- Detail Kebutuhan Saya ---
-- Perkiraan Jumlah: [Mohon diisi]
-- Ukuran & Jumlahnya: [Mohon diisi]
-
-Mohon informasinya. Terima kasih.`;
+const autoDescription = `Halo Dye Apparel,\n\nSaya tertarik untuk custom order produk yang saya lihat di halaman berikut:\n${productUrl}\n\n--- Detail Produk ---\nNama: "${post.nama}"\nKategori: "${post.kategori.join(', ')}"\n\n--- Detail Kebutuhan Saya ---\n- Perkiraan Jumlah: [Mohon diisi]\n- Ukuran & Jumlahnya: [Mohon diisi]\n\nMohon informasinya. Terima kasih.`;
 ---
 <Layout title={`${post.nama} – Dye Apparel`} description={post.deskripsi}>
   <Header />
@@ -47,7 +42,12 @@ Mohon informasinya. Terima kasih.`;
       
       <div class="flex flex-wrap gap-4 items-center justify-between">
         <h1 class="text-4xl font-bold text-gray-900 dark:text-white">{post.nama}</h1>
-        <button id="open-modal-button" class="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:focus:ring-primary-800 font-semibold">
+        {/* DITAMBAHKAN: Atribut untuk menyimpan email tujuan */}
+        <button 
+            id="open-modal-button"
+            data-recipient-email={recipientEmail}
+            class="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:focus:ring-primary-800 font-semibold"
+        >
           Custom Sekarang
         </button>
       </div>
@@ -75,27 +75,25 @@ Mohon informasinya. Terima kasih.`;
     <form id="custom-message-form" class="p-5 space-y-4">
       <div>
         <label for="modal-nama" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Anda</label>
-        <input type="text" id="modal-nama" name="nama" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" placeholder="Marco"/>
+        <input type="text" id="modal-nama" name="nama" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" />
       </div>
-      
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="modal-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Anda</label>
-          <input type="email" id="modal-email" name="email" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" placeholder="email@example.com" />
+          <input type="email" id="modal-email" name="email" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" />
         </div>
         <div>
           <label for="modal-wa" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nomor WA/HP</label>
-          <input type="tel" id="modal-wa" name="no_wa" required class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" placeholder="628123456789"/>
+          <input type="tel" id="modal-wa" name="no_wa" class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" placeholder="Opsional"/>
         </div>
       </div>
-      
       <div>
         <label for="modal-deskripsi" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Detail Permintaan</label>
         <textarea id="modal-deskripsi" name="deskripsi" rows="8" class="block w-full px-3 py-2 bg-gray-100 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm">{autoDescription}</textarea>
       </div>
       <div class="pt-2">
         <button type="submit" id="submit-modal-button" class="w-full bg-primary-600 text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-primary-700 inline-flex items-center justify-center">
-            <span class="btn-text">Kirim Permintaan</span>
+            <span class="btn-text">Kirim & Buka Email</span>
             <span class="loading-spinner hidden ml-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
         </button>
         <div id="modal-feedback" class="mt-3 text-center text-sm"></div>
@@ -106,16 +104,16 @@ Mohon informasinya. Terima kasih.`;
 
 <script is:inline>
   function setupProductPage() {
-    // ... (logic untuk show/hide modal tidak berubah) ...
     const openModalBtn = document.getElementById('open-modal-button');
     const modal = document.getElementById('contact-modal');
     const modalPanel = document.getElementById('modal-panel');
     const closeModalBtn = document.getElementById('close-modal-button');
-    const contactForm = document.getElementById('custom-message-form');
-
-    if (!openModalBtn || !modal || !closeModalBtn || !contactForm || openModalBtn.dataset.listenerAttached === 'true') return;
     
-    // ...
+    // ... (Elemen DOM dan fungsi show/hide modal lainnya tidak berubah) ...
+
+    const contactForm = document.getElementById('custom-message-form');
+    if (!openModalBtn || !contactForm) return;
+
     const showModal = () => {
       modal.classList.remove('hidden');
       setTimeout(() => {
@@ -143,52 +141,74 @@ Mohon informasinya. Terima kasih.`;
       const btnText = submitButton.querySelector('.btn-text');
       const spinner = submitButton.querySelector('.loading-spinner');
       
-      btnText.textContent = 'Mengirim...';
+      btnText.textContent = 'Menyimpan...';
       spinner.classList.remove('hidden');
       submitButton.disabled = true;
       feedbackDiv.textContent = '';
 
-      // DIUBAH: Ambil juga nilai dari input WA
       const dataToSend = {
         nama: document.getElementById('modal-nama').value,
         email: document.getElementById('modal-email').value,
-        no_wa: document.getElementById('modal-wa').value, // <-- Tambahan
+        no_wa: document.getElementById('modal-wa').value,
         deskripsi: document.getElementById('modal-deskripsi').value,
       };
 
       try {
+        // LANGKAH A: Simpan data ke Supabase via API Route
         const response = await fetch('/api/save-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSend),
         });
+        if (!response.ok) throw new Error((await response.json()).message || 'Gagal mengirim.');
 
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message || 'Gagal mengirim.');
-
+        // Jika berhasil, lanjutkan ke Langkah B
         feedbackDiv.className = 'mt-3 text-center text-sm text-green-600';
-        feedbackDiv.textContent = 'Sukses! Pesan Anda telah terkirim. Terima kasih.';
+        feedbackDiv.textContent = 'Sukses! Membuka aplikasi email...';
         
+        // LANGKAH B: Buka aplikasi email (mailto)
+        const recipientEmail = openModalBtn.dataset.recipientEmail;
+        const subject = `Minat Custom Dye Apparel - ${dataToSend.nama}`;
+        
+        // Body email sekarang menyertakan nomor WA jika diisi
+        const body = `
+Pesan dari: ${dataToSend.nama}
+Email: ${dataToSend.email}
+No. WA: ${dataToSend.no_wa || 'Tidak diisi'}
+
+--- Isi Pesan ---
+${dataToSend.deskripsi}
+        `;
+
+        const mailtoLink = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        
+        // Beri jeda 1 detik agar user bisa baca notif, lalu redirect dan tutup modal
         setTimeout(() => {
-            hideModal();
+            window.location.href = mailtoLink;
+            hideModal(); // hideModal adalah fungsi dari script sebelumnya
             contactForm.reset();
             feedbackDiv.textContent = '';
-        }, 2500);
+        }, 1500);
 
       } catch (err) {
         feedbackDiv.className = 'mt-3 text-center text-sm text-red-600';
         feedbackDiv.textContent = `Error: ${err.message}`;
       } finally {
+        // Kembalikan tombol ke keadaan semula setelah beberapa saat
         setTimeout(() => {
-            btnText.textContent = 'Kirim Permintaan';
+            btnText.textContent = 'Kirim & Buka Email';
             spinner.classList.add('hidden');
             submitButton.disabled = false;
-        }, 1000);
+        }, 2000);
       }
     });
   }
 
+  // Eksekusi script
   document.addEventListener('astro:page-load', setupProductPage);
-  if (document.readyState !== 'loading') setupProductPage();
-  else document.addEventListener('DOMContentLoaded', setupProductPage);
+  if (document.readyState !== 'loading') {
+    setupProductPage();
+  } else {
+    document.addEventListener('DOMContentLoaded', setupProductPage);
+  }
 </script>
