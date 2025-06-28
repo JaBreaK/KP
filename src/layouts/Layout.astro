@@ -67,6 +67,25 @@ const {
   href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
 />
 
+<link rel="stylesheet" href="https://unpkg.com/nprogress@0.2.0/nprogress.css" />
+    <script is:inline src="https://unpkg.com/nprogress@0.2.0/nprogress.js"></script>
+    
+    <style is:global>
+
+        /* DITAMBAHKAN: Kustomisasi Warna NProgress agar cocok dengan tema */
+        #nprogress .bar {
+            background: #4f46e5 !important; /* Warna indigo-600 */
+            height: 3px !important;
+        }
+        #nprogress .peg {
+            box-shadow: 0 0 10px #4f46e5, 0 0 5px #4f46e5 !important;
+        }
+        #nprogress .spinner-icon {
+            border-top-color: #4f46e5 !important;
+            border-left-color: #4f46e5 !important;
+        }
+    </style>
+
   </head>
   <body class="antialiased bg-white dark:bg-secondary-950 text-secondary-900 dark:text-secondary-100 transition-colors duration-300">
     <div id="page-wrapper" class="page-transition-wrapper">
@@ -109,6 +128,36 @@ const {
       });
     </script>
     <script src="../scripts/transitions.js"></script>
+      <script is:inline>
+   
+
+    // --- SCRIPT UNTUK MENGONTROL NPROGRESS & SIDEBAR HIGHLIGHT ---
+    // Jalankan saat navigasi Astro dimulai
+    document.addEventListener('astro:before-preparation', () => {
+        NProgress.start();
+    });
+
+    // Jalankan saat konten halaman baru sudah diganti
+    document.addEventListener('astro:after-swap', () => {
+        NProgress.done();
+        // Panggil fungsi highlight di sini agar selalu update setelah navigasi
+        updateSidebarHighlight();
+    });
+    
+    // Panggil juga saat halaman pertama kali dimuat
+    updateSidebarHighlight();
+
+    // --- SCRIPT BAWAANMU (PROFIL, SIDEBAR TOGGLE, DLL) ---
+    // Pastikan script ini juga berjalan dengan benar.
+    // Jika script bawaanmu menggunakan DOMContentLoaded, bungkus juga dengan
+    // event listener astro:page-load agar berfungsi setelah navigasi.
+    document.addEventListener('astro:page-load', () => {
+        // Taruh logic untuk dropdown profil, sidebar toggle, dll di sini.
+        // Contoh:
+        // const profileButton = document.getElementById('profile-button');
+        // if(profileButton) { /* ... logic dropdown ... */ }
+    });
+  </script>
     
   </body>
 </html>

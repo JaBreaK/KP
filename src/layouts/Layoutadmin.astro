@@ -17,12 +17,36 @@ const {
 <!DOCTYPE html>
 <html lang="id">
 <head>
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<!-- Quill core -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <ViewTransitions />
+    <link rel="stylesheet" href="https://unpkg.com/nprogress@0.2.0/nprogress.css" />
+    <script is:inline src="https://unpkg.com/nprogress@0.2.0/nprogress.js"></script>
+    
+    <style is:global>
+        /* Style bawaanmu tetap di sini */
+        button[data-loading] { /* ... */ }
+        .sidebar-link { /* ... */ }
+
+        /* DITAMBAHKAN: Kustomisasi Warna NProgress agar cocok dengan tema */
+        #nprogress .bar {
+            background: #4f46e5 !important; /* Warna indigo-600 */
+            height: 3px !important;
+        }
+        #nprogress .peg {
+            box-shadow: 0 0 10px #4f46e5, 0 0 5px #4f46e5 !important;
+        }
+        #nprogress .spinner-icon {
+            border-top-color: #4f46e5 !important;
+            border-left-color: #4f46e5 !important;
+        }
+    </style>
   <style>
     /* Loading button styles */
     button[data-loading] {
@@ -158,13 +182,15 @@ const {
             </div>
 
           <div class="relative">
-            <button id="profile-button" class="flex items-center space-x-2 focus:outline-none">
+            <button id="profile-button" class="flex items-center space-x-2 focus:outline-none p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
                 <img src="/user.svg" alt="Avatar" class="w-8 h-8 rounded-full" />
                 <span id="admin-name" class="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:block">Admin</span>
                 <svg class="h-4 w-4 text-gray-700 dark:text-gray-300 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
             </button>
-            <div id="profile-menu" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow-md z-10">
-                </div>
+            <div id="profile-menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md shadow-lg z-50">
+                <a href="/recovery" class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Ubah Password</a>
+                <button id="btn-logout" class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Logout</button>
+            </div>
           </div>
         </div>
       </header>
@@ -405,5 +431,101 @@ const {
         });
     })();
   </script>
+
+<script is:inline>
+    // --- KONTROL LOADING BAR NPROGRESS ---
+    document.addEventListener('astro:before-preparation', () => NProgress.start());
+    document.addEventListener('astro:after-swap', () => NProgress.done());
+
+    // --- FUNGSI UTAMA UNTUK SETUP SEMUA INTERAKSI ---
+    function setupAdminLayout() {
+        
+        // 1. PENGECEKAN SESI (TETAP DI PALING ATAS)
+        if (!localStorage.getItem("staffSession")) {
+            window.location.href = "/login"; 
+            return; 
+        }
+
+        // 2. LOGIC SIDEBAR TOGGLE UNTUK MOBILE
+        const sidebar = document.getElementById("sidebar");
+        const btnToggle = document.getElementById("btn-sidebar-toggle");
+        if (sidebar && btnToggle && !btnToggle.dataset.listenerAttached) {
+            btnToggle.addEventListener("click", (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle("-translate-x-full");
+            });
+            btnToggle.dataset.listenerAttached = 'true';
+        }
+
+        // 3. LOGIC DROPDOWN PROFIL & LOGOUT
+        const profileButton = document.getElementById('profile-button');
+        const profileMenu = document.getElementById('profile-menu');
+        const logoutButton = document.getElementById('btn-logout');
+
+        if (profileButton && profileMenu && !profileButton.dataset.listenerAttached) {
+            profileButton.addEventListener("click", (e) => {
+                e.stopPropagation();
+                profileMenu.classList.toggle('hidden');
+            });
+            profileButton.dataset.listenerAttached = 'true';
+        }
+        if(logoutButton && !logoutButton.dataset.listenerAttached) {
+            logoutButton.addEventListener('click', () => {
+                localStorage.removeItem("staffSession");
+                window.location.href = "/login";
+            });
+            logoutButton.dataset.listenerAttached = 'true';
+        }
+        
+        // 4. LOGIC HIGHLIGHT SIDEBAR LINK
+        const currentPath = window.location.pathname;
+        const links = document.querySelectorAll(".sidebar-link");
+        links.forEach(link => {
+            link.classList.remove("active"); 
+            const path = link.getAttribute("data-path");
+            if (path && (currentPath === path || (path !== '/admin' && currentPath.startsWith(path)))) {
+                link.classList.add("active");
+            }
+        });
+        
+        // 5. SETUP NOTIFIKASI
+        // (Taruh fungsi setupNotifications() dari jawaban sebelumnya di sini jika kamu memakainya)
+
+        // 6. AMBIL NAMA ADMIN DARI LOCALSTORAGE (DIPERBAIKI DENGAN ERROR HANDLING)
+        try {
+            const sessionData = localStorage.getItem("staffSession");
+            // Cek jika sessionData ada sebelum di-parse
+            if (sessionData) {
+                const session = JSON.parse(sessionData);
+                // Cek struktur data sesi sebelum mengambil email
+                const email = session?.user?.email ?? "";
+                const adminNameEl = document.getElementById("admin-name");
+                if (email && adminNameEl) {
+                    adminNameEl.textContent = email.split("@")[0] || "Admin";
+                }
+            }
+        } catch (e) {
+            // Jika JSON.parse gagal, akan muncul error di console
+            console.error("Gagal parse staffSession dari localStorage. Data mungkin tidak valid:", e);
+        }
+        
+    } // Akhir dari fungsi setupAdminLayout
+
+    // --- EKSEKUSI SCRIPT ---
+    // Jalankan semua setup setiap kali halaman Astro selesai navigasi
+    document.addEventListener('astro:page-load', setupAdminLayout);
+    // Panggil juga saat halaman pertama kali dimuat (setelah DOM siap)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupAdminLayout);
+    } else {
+      setupAdminLayout();
+    }
+
+    // Listener global untuk menutup dropdown jika klik di luar
+    document.addEventListener("click", () => {
+        document.getElementById('profile-menu')?.classList.add("hidden");
+        document.getElementById('notification-dropdown')?.classList.add('hidden');
+    });
+</script>
 </body>
 </html>
