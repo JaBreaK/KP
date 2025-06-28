@@ -1,0 +1,134 @@
+---
+// src/components/admin/KelolaKontak.astro
+import { supabase } from '../../lib/supabase'; // Sesuaikan path jika perlu
+
+// Ambil data kontak saat ini untuk mengisi form
+const { data: kontak, error } = await supabase
+  .from('kontak')
+  .select()
+  .eq('id', 1)
+  .single();
+
+if (error) {
+    console.error("Gagal mengambil info kontak:", error.message);
+}
+---
+
+<section id="kelola-kontak-container" class="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+    <div class="p-4 sm:p-6 border-b dark:border-gray-700">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-white">Kelola Informasi Kontak</h2>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Perubahan di sini akan otomatis ter-update di halaman kontak publik.
+        </p>
+    </div>
+
+    <form id="kontak-form" class="p-4 sm:p-6 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                <input type="email" id="email" value={kontak?.email} class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="contoh@email.com"/>
+            </div>
+            <div>
+                <label for="telepon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telepon</label>
+                <input type="tel" id="telepon" value={kontak?.telepon} class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="08123456789"/>
+            </div>
+        </div>
+
+        <div>
+            <label for="alamat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alamat</label>
+            <textarea id="alamat" rows="3" class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Jalan, Kota, Provinsi">{kontak?.alamat}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label for="link_instagram" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link Instagram</label>
+                <input type="url" id="link_instagram" value={kontak?.link_instagram} class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="https://instagram.com/..."/>
+            </div>
+            <div>
+                <label for="link_facebook" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link Facebook</label>
+                <input type="url" id="link_facebook" value={kontak?.link_facebook} class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="https://facebook.com/..."/>
+            </div>
+            <div>
+                <label for="link_whatsapp" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link WhatsApp</label>
+                <input type="url" id="link_whatsapp" value={kontak?.link_whatsapp} class="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="https://wa.me/62..."/>
+            </div>
+        </div>
+
+        <div class="pt-4 flex justify-end">
+            <button type="submit" id="save-kontak-button" class="bg-primary-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-primary-700 transition-colors inline-flex items-center">
+                <span class="btn-text">Simpan Perubahan</span>
+                <span class="loading-spinner hidden ml-2 w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+            </button>
+        </div>
+    </form>
+</section>
+
+<script is:inline>
+    function setupKontakForm() {
+        const form = document.getElementById('kontak-form');
+        const saveButton = document.getElementById('save-kontak-button');
+        if (!form || !saveButton) return;
+
+        // Cek agar listener tidak menumpuk
+        if (form.dataset.listenerAttached === 'true') return;
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const btnText = saveButton.querySelector('.btn-text');
+            const spinner = saveButton.querySelector('.loading-spinner');
+            
+            btnText.textContent = 'Menyimpan...';
+            spinner.classList.remove('hidden');
+            saveButton.disabled = true;
+            
+            const dataToUpdate = {
+                email: document.getElementById('email').value,
+                telepon: document.getElementById('telepon').value,
+                alamat: document.getElementById('alamat').value,
+                link_instagram: document.getElementById('link_instagram').value,
+                link_facebook: document.getElementById('link_facebook').value,
+                link_whatsapp: document.getElementById('link_whatsapp').value,
+            };
+
+            try {
+                const response = await fetch('/api/update-kontak', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataToUpdate),
+                });
+                
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'Gagal menyimpan ke server.');
+                }
+                
+                if (window.showToast) {
+                    window.showToast(result.message);
+                } else {
+                    alert(result.message);
+                }
+
+            } catch (err) {
+                if (window.showToast) {
+                    window.showToast(err.message, true);
+                } else {
+                    alert('Error: ' + err.message);
+                }
+            } finally {
+                btnText.textContent = 'Simpan Perubahan';
+                spinner.classList.add('hidden');
+                saveButton.disabled = false;
+            }
+        });
+        
+        form.dataset.listenerAttached = 'true';
+    }
+
+    document.addEventListener('astro:page-load', setupKontakForm);
+    if (document.readyState !== 'loading') {
+        setupKontakForm();
+    } else {
+        document.addEventListener('DOMContentLoaded', setupKontakForm);
+    }
+</script>
